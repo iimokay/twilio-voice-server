@@ -55,7 +55,7 @@ wss.on('connection', async (ws, req) => {
         start: {
           accountSid: streamSid,
           mediaFormat: {
-            encoding: 'pcm',
+            encoding: 'audio/pcm',
             sampleRate: 16000,
             channels: 1,
           },
