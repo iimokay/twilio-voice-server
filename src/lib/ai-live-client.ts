@@ -16,7 +16,6 @@ import { EventEmitter } from 'eventemitter3';
 import { difference } from 'lodash';
 import { CloseEvent, ErrorEvent } from 'ws';
 import { StreamingLog } from '../types';
-import { base64ToArrayBuffer } from './utils';
 
 /**
  * Event types that can be emitted by the MultimodalLiveClient.
@@ -24,7 +23,7 @@ import { base64ToArrayBuffer } from './utils';
  */
 export interface LiveClientEventTypes {
   // Emitted when audio data is received
-  audio: (data: ArrayBuffer) => void;
+  audio: (data: { payload: string; mimeType?: string }) => void;
   // Emitted when the connection closes
   close: (event: CloseEvent) => void;
   // Emitted when content is received from the server
@@ -189,16 +188,20 @@ export class AILiveClient extends EventEmitter<LiveClientEventTypes> {
         const audioParts = parts.filter(
           p => p.inlineData && p.inlineData.mimeType?.startsWith('audio/pcm')
         );
-        const base64s = audioParts.map(p => p.inlineData?.data);
+        const base64s = audioParts.map(p => {
+          return {
+            mimeType: p.inlineData?.mimeType,
+            data: p.inlineData?.data,
+          };
+        });
 
         // strip the audio parts out of the modelTurn
         const otherParts = difference(parts, audioParts);
-
         base64s.forEach(b64 => {
-          if (b64) {
-            const data = base64ToArrayBuffer(b64);
-            this.emit('audio', data);
-            this.log(`server.audio`, `buffer (${data.byteLength})`);
+          if (b64.data) {
+            const payload = b64.data;
+            this.emit('audio', { payload, mimeType: b64.mimeType });
+            this.log(`server.audio`, `buffer (${b64.mimeType})`);
           }
         });
         if (!otherParts.length) {

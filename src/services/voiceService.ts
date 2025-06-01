@@ -1,4 +1,7 @@
 import { LiveConnectConfig, Modality } from '@google/genai';
+import * as fs from 'fs';
+import * as path from 'path';
+import { WaveFile } from 'wavefile';
 import WebSocket from 'ws';
 import { env } from '../env';
 import { AILiveClient } from '../lib/ai-live-client';
@@ -11,6 +14,8 @@ interface StreamInfo {
   tracks: string[];
   callSid: string;
   liveClient: AILiveClient;
+  inputBuffer: Int16Array[];
+  outputBuffer: Int16Array[];
 }
 
 export class VoiceService {
@@ -29,10 +34,15 @@ export class VoiceService {
       // }
     },
   };
+  private readonly RECORDINGS_DIR = path.join(process.cwd(), 'recordings');
 
   private constructor() {
     this.logger = console;
     this.activeStreams = new Map();
+    // 确保录音目录存在
+    if (!fs.existsSync(this.RECORDINGS_DIR)) {
+      fs.mkdirSync(this.RECORDINGS_DIR, { recursive: true });
+    }
   }
 
   public static getInstance(): VoiceService {
@@ -42,21 +52,43 @@ export class VoiceService {
     return VoiceService.instance;
   }
 
+  private saveWavFile(samples: Int16Array[], outputPath: string, sampleRate: number = 16000): void {
+    try {
+      const waveFile = new WaveFile();
+      // 将所有样本合并成一个数组
+      const allSamples = new Int16Array(samples.reduce((acc, curr) => acc + curr.length, 0));
+      let offset = 0;
+      for (const sample of samples) {
+        allSamples.set(sample, offset);
+        offset += sample.length;
+      }
+      waveFile.fromScratch(1, sampleRate, '16', Array.from(allSamples));
+      fs.writeFileSync(outputPath, waveFile.toBuffer());
+      this.logger.info(`[GenAI] Saved audio file to ${outputPath}`);
+    } catch (error) {
+      this.logger.error(`[GenAI] Error saving audio file:`, error);
+    }
+  }
+
   private async initializeLiveClent(streamSid: string): Promise<AILiveClient> {
     const ai = new AILiveClient({ apiKey: env.google.apiKey });
-    ai.on('audio', (data: ArrayBuffer) => {
+    ai.on('audio', data => {
       const streamInfo = this.activeStreams.get(streamSid);
       if (streamInfo) {
         try {
-          if (streamInfo.tracks.includes('user_audio_input')) {
-            streamInfo.ws.send(Buffer.from(data).toString('base64'));
-            this.logger.info(
-              `[LiveClient] Sending useraudio data to stream ${streamSid} (${streamInfo.tracks})`
-            );
-          } else {
+          // 添加到输出缓冲区
+          const pcmData = Buffer.from(data.payload, 'base64');
+          const samples = new Int16Array(pcmData.buffer);
+          streamInfo.outputBuffer.push(samples);
+          this.logger.info(
+            `[LiveClient] Sending user audio data to stream(${streamInfo.tracks}) ${streamSid} data:${data.mimeType}`
+          );
+          //Gemini 生成音频 pcm 转 mulaw 发送给twilio/user
+          if (!streamInfo.tracks.includes('user_audio_input')) {
+            // 转换为mulaw
             const pcmToMulaw = AudioConverter.convert(
-              Buffer.from(data),
-              { encoding: 'audio/pcm', sampleRate: 16000 },
+              pcmData,
+              { encoding: 'audio/pcm', sampleRate: 24000 },
               { encoding: 'audio/x-mulaw', sampleRate: 8000 }
             );
             streamInfo.ws.send(
@@ -68,11 +100,9 @@ export class VoiceService {
                 },
               })
             );
-            this.logger.info(
-              '[LiveClient] Audio twilio event received:',
-              streamSid,
-              streamInfo.mediaFormat
-            );
+          } else {
+            // 发送原始数据
+            streamInfo.ws.send(data.payload);
           }
         } catch (error) {
           this.logger.error(
@@ -86,7 +116,14 @@ export class VoiceService {
         this.logger.info('[GenAI] Connection opened');
       })
       .on('close', () => {
-        this.logger.info('[GenAI] Connection closed');
+        this.logger.info('[GenAI] Connection closed', streamSid);
+        const streamInfo = this.activeStreams.get(streamSid);
+        // 保存输出音频文件
+        if (streamInfo && streamInfo.outputBuffer.length > 0) {
+          const outputPath = path.join(this.RECORDINGS_DIR, `output_${streamSid}.wav`);
+          this.saveWavFile(streamInfo.outputBuffer, outputPath, 24000);
+        }
+        this.activeStreams.delete(streamSid);
       })
       .on('interrupted', () => {
         this.logger.warn('[GenAI] Connection interrupted');
@@ -115,6 +152,8 @@ export class VoiceService {
               tracks: data.start.tracks,
               callSid: data.start.callSid,
               liveClient,
+              inputBuffer: [],
+              outputBuffer: [],
             };
             this.activeStreams.set(streamSid, streamInfo);
             this.logger.info('[GenAI] Start event received:', data);
@@ -124,33 +163,27 @@ export class VoiceService {
         case 'media':
           const streamInfo = this.activeStreams.get(streamSid);
           if (streamInfo && data.media) {
-            if (streamInfo.tracks.includes('user_audio_input')) {
-              // 发送给 GenAI Live
-              streamInfo.liveClient.sendRealtimeInput([data.media]);
-            } else {
-              const mulawToPcm = AudioConverter.convert(
-                Buffer.from(data.media.payload, 'base64'),
-                streamInfo.mediaFormat,
-                { encoding: 'audio/pcm', sampleRate: 16000 }
-              );
-              // 发送给 GenAI Live
-              streamInfo.liveClient.sendRealtimeInput([
-                {
-                  mimeType: 'audio/pcm;rate=16000',
-                  data: mulawToPcm.toString('base64'),
-                },
-              ]);
-              // 发送给 Twilio 原始数据
-              // streamInfo.ws.send(JSON.stringify({
-              //     event: "media",
-              //     streamSid,
-              //     media: {
-              //         payload: data.media.payload
-              //     }
-              // }));
+            let pcmData = data.media.payload;
+            // 添加到输入缓冲区
+            const audioData = Buffer.from(data.media.payload, 'base64');
+            const samples = new Int16Array(audioData.buffer);
+            streamInfo.inputBuffer.push(samples);
+
+            if (!streamInfo.tracks.includes('user_audio_input')) {
+              pcmData = AudioConverter.convert(audioData, streamInfo.mediaFormat, {
+                encoding: 'audio/pcm',
+                sampleRate: 16000,
+              }).toString('base64');
             }
+            streamInfo.liveClient.sendRealtimeInput([
+              {
+                mimeType: 'audio/pcm;rate=16000',
+                data: pcmData,
+              },
+            ]);
           }
           break;
+
         case 'mark':
           this.logger.info('[GenAI] Mark event received:', data.mark);
           break;
@@ -159,6 +192,11 @@ export class VoiceService {
           const stream = this.activeStreams.get(streamSid);
           if (stream) {
             this.logger.info('[GenAI] Close event received:', data);
+            // 保存输入音频文件
+            if (stream.inputBuffer.length > 0) {
+              const inputPath = path.join(this.RECORDINGS_DIR, `input_${streamSid}.wav`);
+              this.saveWavFile(stream.inputBuffer, inputPath);
+            }
             this.closeStream(streamSid);
           }
           break;
@@ -181,7 +219,6 @@ export class VoiceService {
       // 断开 GenAI Live 连接
       stream.liveClient.disconnect();
       stream.ws.close();
-      this.activeStreams.delete(streamSid);
       this.logger.info('[GenAI] Closed stream', streamSid);
     }
   }
