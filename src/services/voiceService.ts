@@ -56,8 +56,8 @@ export class VoiceService {
           } else {
             const pcmToMulaw = AudioConverter.convert(
               Buffer.from(data),
-              { encoding: 'audio/pcm', sampleRate: 16000, channels: 1 },
-              { encoding: 'audio/x-mulaw', sampleRate: 8000, channels: 1 }
+              { encoding: 'audio/pcm', sampleRate: 16000 },
+              { encoding: 'audio/x-mulaw', sampleRate: 8000 }
             );
             streamInfo.ws.send(
               JSON.stringify({
@@ -68,7 +68,11 @@ export class VoiceService {
                 },
               })
             );
-            this.logger.info('[LiveClient] Audio twilio event received:', data);
+            this.logger.info(
+              '[LiveClient] Audio twilio event received:',
+              streamSid,
+              streamInfo.mediaFormat
+            );
           }
         } catch (error) {
           this.logger.error(
@@ -113,7 +117,7 @@ export class VoiceService {
               liveClient,
             };
             this.activeStreams.set(streamSid, streamInfo);
-            this.logger.info('[VoiceService] Start event received:', data);
+            this.logger.info('[GenAI] Start event received:', data);
           }
           break;
 
@@ -127,7 +131,7 @@ export class VoiceService {
               const mulawToPcm = AudioConverter.convert(
                 Buffer.from(data.media.payload, 'base64'),
                 streamInfo.mediaFormat,
-                { encoding: 'audio/pcm', sampleRate: 16000, channels: 1 }
+                { encoding: 'audio/pcm', sampleRate: 16000 }
               );
               // 发送给 GenAI Live
               streamInfo.liveClient.sendRealtimeInput([
@@ -148,22 +152,22 @@ export class VoiceService {
           }
           break;
         case 'mark':
-          this.logger.info('[Twilio] Mark event received:', data.mark);
+          this.logger.info('[GenAI] Mark event received:', data.mark);
           break;
 
         case 'stop':
           const stream = this.activeStreams.get(streamSid);
           if (stream) {
-            this.logger.info('[Twilio] Close event received:', data);
+            this.logger.info('[GenAI] Close event received:', data);
             this.closeStream(streamSid);
           }
           break;
 
         default:
-          this.logger.warn(`[Twilio] Unknown event type for stream ${streamSid}:`, data.event);
+          this.logger.warn(`[GenAI] Unknown event type for stream ${streamSid}:`, data.event);
       }
     } catch (error) {
-      this.logger.warn(`[Twilio] Error handling stream data for ${data.streamSid}:`, error);
+      this.logger.warn(`[GenAI] Error handling stream data for ${data.streamSid}:`, error);
     }
   }
 
@@ -178,7 +182,7 @@ export class VoiceService {
       stream.liveClient.disconnect();
       stream.ws.close();
       this.activeStreams.delete(streamSid);
-      this.logger.info('[Twilio] Closed stream', streamSid);
+      this.logger.info('[GenAI] Closed stream', streamSid);
     }
   }
 }
