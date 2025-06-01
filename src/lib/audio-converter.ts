@@ -3,7 +3,6 @@ import { mulaw, utils } from 'x-law';
 interface AudioFormat {
   encoding: string;
   sampleRate: number;
-  channels: number;
 }
 
 export class AudioConverter {
@@ -24,12 +23,7 @@ export class AudioConverter {
   /**
    * 转换采样率
    */
-  public static resample(
-    audioData: Buffer,
-    fromSampleRate: number,
-    toSampleRate: number,
-    channels: number
-  ): Buffer {
+  public static resample(audioData: Buffer, fromSampleRate: number, toSampleRate: number): Buffer {
     if (fromSampleRate === toSampleRate) {
       return audioData;
     }
@@ -76,12 +70,7 @@ export class AudioConverter {
 
     // 然后进行采样率转换
     if (fromFormat.sampleRate !== toFormat.sampleRate) {
-      convertedData = this.resample(
-        convertedData,
-        fromFormat.sampleRate,
-        toFormat.sampleRate,
-        fromFormat.channels
-      );
+      convertedData = this.resample(convertedData, fromFormat.sampleRate, toFormat.sampleRate);
     }
 
     return convertedData;
