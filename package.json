@@ -7,7 +7,9 @@
     "start": "node dist/app.js",
     "dev": "ts-node-dev --respawn src/app.ts",
     "build": "rimraf dist && tsc",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,md}\""
   },
   "keywords": [],
   "author": "",
@@ -22,7 +24,8 @@
     "koa-bodyparser": "^4.4.1",
     "koa-static": "^5.0.0",
     "lodash": "^4.17.21",
-    "ws": "^8.18.2"
+    "ws": "^8.18.2",
+    "x-law": "^0.3.1"
   },
   "devDependencies": {
     "@types/koa": "^2.15.0",
@@ -34,6 +37,7 @@
     "@types/ws": "^8.18.1",
     "copyfiles": "^2.4.1",
     "nodemon": "^3.1.10",
+    "prettier": "^3.5.3",
     "rimraf": "^5.0.10",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.8.3"

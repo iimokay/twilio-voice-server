@@ -14,7 +14,7 @@ const app = new Koa();
 // Initialize voice controller
 const voiceService = VoiceService.getInstance();
 
-// Middleware· 
+// Middleware·
 app.use(bodyParser());
 app.use(serve(path.join(__dirname, '../public')));
 
@@ -27,7 +27,7 @@ app.use(async (ctx, next) => {
     ctx.status = 500;
     ctx.body = {
       error: 'Internal server error',
-      message: (error as Error).message
+      message: (error as Error).message,
     };
   }
 });
@@ -46,25 +46,28 @@ const wss = new WebSocket.Server({ server });
 wss.on('connection', async (ws, req) => {
   console.log('🔗 WebSocket client connected', req.url);
   if (req.url?.includes('/user/')) {
-    const streamSid = req.url.replace('/user/', '') ?? "general-stream";
-    await voiceService.handleStreamData({
-      event: 'start',
-      streamSid,
-      start: {
-        accountSid: streamSid,
-        mediaFormat: {
-          encoding: 'pcm',
-          sampleRate: 16000,
-          channels: 1
+    const streamSid = req.url.replace('/user/', '') ?? 'general-stream';
+    await voiceService.handleStreamData(
+      {
+        event: 'start',
+        streamSid,
+        start: {
+          accountSid: streamSid,
+          mediaFormat: {
+            encoding: 'pcm',
+            sampleRate: 16000,
+            channels: 1,
+          },
+          tracks: ['user_audio_input'],
+          callSid: streamSid,
+          customParameters: {},
         },
-        tracks: ['user_audio_input'],
-        callSid: streamSid,
-        customParameters: {}
-      }
-    }, ws);
+      },
+      ws
+    );
   }
 
-  ws.on('message', async (message) => {
+  ws.on('message', async message => {
     try {
       const data = JSON.parse(message.toString());
       await voiceService.handleStreamData(data, ws);
@@ -76,11 +79,11 @@ wss.on('connection', async (ws, req) => {
     console.log('⛓️‍💥 WebSocket client disconnected');
   });
 
-  ws.on('error', (error) => {
+  ws.on('error', error => {
     console.error('❌ WebSocket error:', error);
   });
 });
 // Start server
 server.listen(env.port, () => {
   console.log(`🚀 Server is running on port ${env.port}`);
-}); 
+});

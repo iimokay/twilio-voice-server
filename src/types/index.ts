@@ -1,4 +1,4 @@
-import { Part } from "@google/genai";
+import { Part } from '@google/genai';
 import WebSocket from 'ws';
 
 export interface TwilioConfig {
@@ -43,7 +43,7 @@ export interface VoiceStreamData {
   event: string;
   streamSid: string;
   start?: StreamStart;
-  media?: StreamMedia & { mimeType: string, data: string };
+  media?: StreamMedia & { mimeType: string; data: string };
   mark?: StreamMark;
   stop?: StreamStop;
 }

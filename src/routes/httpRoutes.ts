@@ -1,11 +1,11 @@
 import Router from '@koa/router';
 
 const router = new Router({
-  prefix: '/api'
+  prefix: '/api',
 });
 
 // Voice endpoint
-router.post('/voice', async (ctx) => {
+router.post('/voice', async ctx => {
   try {
     const host = ctx.hostname;
     const streamUrl = `wss://${host}/stream`;
@@ -27,4 +27,4 @@ router.post('/voice', async (ctx) => {
   </Response>`;
   }
 });
-export default router; 
+export default router;
