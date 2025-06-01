@@ -49,7 +49,7 @@ export class VoiceService {
                 if (streamInfo) {
                     try {
                         streamInfo.ws.send(Buffer.from(data).toString("base64"));
-                        this.logger.info(`[Twilio] Sending audio data to stream ${streamSid} (base64)`);
+                        this.logger.info(`[Twilio] Sending audio data to stream ${streamSid} (${streamInfo.tracks})`);
                     } catch (error) {
                         this.logger.error(`[Twilio] Error converting audio format for stream ${streamSid}:`, error);
                     }

@@ -3,7 +3,6 @@ import {
   GoogleGenAI,
   GoogleGenAIOptions,
   LiveCallbacks,
-  LiveClientToolResponse,
   LiveConnectConfig,
   LiveServerContent,
   LiveServerMessage,
@@ -14,8 +13,8 @@ import {
 } from "@google/genai";
 
 import { EventEmitter } from "eventemitter3";
-import { CloseEvent, ErrorEvent } from "ws";
 import { difference } from "lodash";
+import { CloseEvent, ErrorEvent } from "ws";
 import { StreamingLog } from "../types";
 import { base64ToArrayBuffer } from "./utils";
 
@@ -80,7 +79,7 @@ export class AILiveClient extends EventEmitter<LiveClientEventTypes> {
   constructor(options: GoogleGenAIOptions) {
     super();
     this.client = new GoogleGenAI(options);
-    this.send = this.send.bind(this);
+    // this.send = this.send.bind(this);
     this.onopen = this.onopen.bind(this);
     this.onerror = this.onerror.bind(this);
     this.onclose = this.onclose.bind(this);
@@ -229,7 +228,7 @@ export class AILiveClient extends EventEmitter<LiveClientEventTypes> {
     let hasAudio = false;
     let hasVideo = false;
     for (const ch of chunks) {
-      this.session?.sendRealtimeInput({ media: ch });
+      this.session?.sendRealtimeInput({ audio: ch });
       if (ch.mimeType.includes("audio")) {
         hasAudio = true;
       }
@@ -251,29 +250,29 @@ export class AILiveClient extends EventEmitter<LiveClientEventTypes> {
     this.log(`client.realtimeInput`, message);
   }
 
-  /**
-   *  send a response to a function call and provide the id of the functions you are responding to
-   */
-  sendToolResponse(toolResponse: LiveClientToolResponse) {
-    if (
-      toolResponse.functionResponses &&
-      toolResponse.functionResponses.length
-    ) {
-      this.session?.sendToolResponse({
-        functionResponses: toolResponse.functionResponses,
-      });
-      this.log(`client.toolResponse`, toolResponse);
-    }
-  }
+  // /**
+  //  *  send a response to a function call and provide the id of the functions you are responding to
+  //  */
+  // sendToolResponse(toolResponse: LiveClientToolResponse) {
+  //   if (
+  //     toolResponse.functionResponses &&
+  //     toolResponse.functionResponses.length
+  //   ) {
+  //     this.session?.sendToolResponse({
+  //       functionResponses: toolResponse.functionResponses,
+  //     });
+  //     this.log(`client.toolResponse`, toolResponse);
+  //   }
+  // }
 
-  /**
-   * send normal content parts such as { text }
-   */
-  send(parts: Part | Part[], turnComplete: boolean = true) {
-    this.session?.sendClientContent({ turns: parts, turnComplete });
-    this.log(`client.send`, {
-      turns: Array.isArray(parts) ? parts : [parts],
-      turnComplete,
-    });
-  }
+  // /**
+  //  * send normal content parts such as { text }
+  //  */
+  // send(parts: Part | Part[], turnComplete: boolean = true) {
+  //   this.session?.sendClientContent({ turns: parts, turnComplete });
+  //   this.log(`client.send`, {
+  //     turns: Array.isArray(parts) ? parts : [parts],
+  //     turnComplete,
+  //   });
+  // }
 } 
