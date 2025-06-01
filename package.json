@@ -24,6 +24,7 @@
     "koa-bodyparser": "^4.4.1",
     "koa-static": "^5.0.0",
     "lodash": "^4.17.21",
+    "wavefile": "^11.0.0",
     "ws": "^8.18.2",
     "x-law": "^0.3.1"
   },
