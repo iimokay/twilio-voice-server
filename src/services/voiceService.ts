@@ -97,8 +97,12 @@ export class VoiceService {
                 case 'media':
                     const streamInfo = this.activeStreams.get(streamSid);
                     if (streamInfo && data.media) {
-                        // 发送给 GenAI Live
-                        streamInfo.liveClient.sendRealtimeInput([data.media]);
+                        if (streamInfo.tracks.includes('user_audio_input')) {
+                            // 发送给 GenAI Live
+                            streamInfo.liveClient.sendRealtimeInput([data.media]);
+                        } else {
+                            this.logger.info('[Twilio] Media event received:', data);
+                        }
                     }
                     break;
                 case 'mark':
