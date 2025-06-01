@@ -43,7 +43,7 @@ export interface VoiceStreamData {
   event: string;
   streamSid: string;
   start?: StreamStart;
-  media?: StreamMedia & { mimeType: string; data: string };
+  media?: StreamMedia;
   mark?: StreamMark;
   stop?: StreamStop;
 }
