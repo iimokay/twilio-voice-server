@@ -126,7 +126,7 @@ export class VoiceService {
             } else {
               const mulawToPcm = AudioConverter.convert(
                 Buffer.from(data.media.payload, 'base64'),
-                { encoding: 'audio/x-mulaw', sampleRate: 8000, channels: 1 },
+                streamInfo.mediaFormat,
                 { encoding: 'audio/pcm', sampleRate: 16000, channels: 1 }
               );
               // 发送给 GenAI Live

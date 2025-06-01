@@ -1,7 +1,7 @@
 import { mulaw, utils } from 'x-law';
 
 interface AudioFormat {
-  encoding: 'audio/x-mulaw' | 'audio/pcm';
+  encoding: string;
   sampleRate: number;
   channels: number;
 }
