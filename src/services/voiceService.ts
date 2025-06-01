@@ -1,18 +1,15 @@
-import { LiveConnectConfig } from '@google/genai';
+import { LiveConnectConfig, Modality } from '@google/genai';
 import WebSocket from 'ws';
 import { env } from '../env';
-import { GenAILiveClient } from '../lib/genaiLiveClient';
+import { AILiveClient } from '../lib/ai-live-client';
 import { MediaFormat, VoiceStreamData } from '../types';
-import { mulawToPcm, pcmToMulaw } from '../utils/audio';
 
 interface StreamInfo {
     ws: WebSocket;
     mediaFormat: MediaFormat;
     tracks: string[];
     callSid: string;
-    messages: VoiceStreamData[];
-    hasSeenMedia: boolean;
-    geminiLiveClient: GenAILiveClient;
+    liveClient: AILiveClient;
 }
 
 export class VoiceService {
@@ -21,7 +18,15 @@ export class VoiceService {
     private activeStreams: Map<string, StreamInfo>;
     private readonly GENAI_MODEL = "models/gemini-2.0-flash-exp";
     private readonly GENAI_CONFIG: LiveConnectConfig = {
-        // 添加必要的配置
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+            languageCode: "cmn-CN",
+            // voiceConfig: {
+            //     prebuiltVoiceConfig: {
+            //         voiceName: "Charon"
+            //     }
+            // }
+        },
     };
 
     private constructor() {
@@ -36,38 +41,28 @@ export class VoiceService {
         return VoiceService.instance;
     }
 
-    private async initializeLiveClent(streamSid: string): Promise<GenAILiveClient> {
-        const ai = new GenAILiveClient({ apiKey: env.google.apiKey });
-        // 设置事件处理器
-        ai.on('open', () => {
-            this.logger.info('[GenAI] Connection opened');
-        })
+    private async initializeLiveClent(streamSid: string): Promise<AILiveClient> {
+        const ai = new AILiveClient({ apiKey: env.google.apiKey });
+        ai
+            .on('audio', (data: ArrayBuffer) => {
+                const streamInfo = this.activeStreams.get(streamSid);
+                if (streamInfo) {
+                    try {
+                        streamInfo.ws.send(Buffer.from(data).toString("base64"));
+                        this.logger.info(`[Twilio] Sending audio data to stream ${streamSid} (base64)`);
+                    } catch (error) {
+                        this.logger.error(`[Twilio] Error converting audio format for stream ${streamSid}:`, error);
+                    }
+                }
+            })
+            .on('open', () => {
+                this.logger.info('[GenAI] Connection opened');
+            })
             .on('close', () => {
                 this.logger.info('[GenAI] Connection closed');
             })
             .on('interrupted', () => {
                 this.logger.warn('[GenAI] Connection interrupted');
-            }).on('audio', (data: ArrayBuffer) => {
-                const streamInfo = this.activeStreams.get(streamSid);
-                if (streamInfo) {
-                    try {
-                        // GenAI 返回的是 PCM 格式，需要转换为 mulaw
-                        const pcmData = Buffer.from(data);
-                        const mulawData = pcmToMulaw(pcmData);
-
-                        const message = {
-                            event: 'media',
-                            streamSid,
-                            media: {
-                                payload: mulawData.toString('base64')
-                            }
-                        };
-                        streamInfo.ws.send(JSON.stringify(message));
-                        this.logger.info(`[Twilio] Sending audio data to stream ${streamSid} (mulaw)`);
-                    } catch (error) {
-                        this.logger.error(`[Twilio] Error converting audio format for stream ${streamSid}:`, error);
-                    }
-                }
             });
 
         try {
@@ -80,75 +75,32 @@ export class VoiceService {
         return ai;
     }
 
-    private async processMediaMessage(data: VoiceStreamData, streamInfo: StreamInfo): Promise<void> {
-        if (!streamInfo.hasSeenMedia) {
-            this.logger.info('[Twilio] Media event received:', data);
-            streamInfo.hasSeenMedia = true;
-        }
-
-        // 将媒体消息存入缓冲区
-        streamInfo.messages.push(data);
-
-        // 当消息达到阈值时，发送给 GenAI
-        if (streamInfo.messages.length >= 50) { // 可以根据需要调整阈值
-            const messages = [...streamInfo.messages];
-            streamInfo.messages = [];
-
-            try {
-                const messageByteBuffers = messages.map((msg) => {
-                    if (!msg.media?.payload) {
-                        throw new Error('Invalid media message: missing payload');
-                    }
-                    return Buffer.from(msg.media.payload, 'base64');
-                });
-
-                // 合并所有 mulaw 数据
-                const mergedMulawData = Buffer.concat(messageByteBuffers);
-
-                // 将 8kHz mulaw 转换为 16kHz PCM
-                const pcmBase64 = mulawToPcm(mergedMulawData);
-                const pcmData = Buffer.from(pcmBase64, 'base64');
-                // 发送给 GenAI Live
-                streamInfo.geminiLiveClient.sendRealtimeInput([{ mimeType: 'audio/pcm;sampleRate=16000', data: pcmData.toString('base64') }]);
-                this.logger.info(`[GenAI] Sending audio data (PCM 16kHz, size: ${pcmData.length} bytes)`);
-            } catch (error) {
-                this.logger.error('[GenAI] Error processing audio data:', error);
-                // 如果处理失败，将消息放回缓冲区
-                streamInfo.messages = [...messages, ...streamInfo.messages];
-            }
-        }
-    }
-
-    public async handleStreamData(data: VoiceStreamData & { event: string }, ws: WebSocket): Promise<void> {
+    public async handleStreamData(data: VoiceStreamData, ws: WebSocket): Promise<void> {
         try {
             const { streamSid } = data;
-
             switch (data.event) {
                 case 'start':
                     if (data.start) {
-                        const geminiLiveClient = await this.initializeLiveClent(streamSid);
+                        const liveClient = await this.initializeLiveClent(streamSid);
                         const streamInfo: StreamInfo = {
                             ws,
                             mediaFormat: data.start.mediaFormat,
                             tracks: data.start.tracks,
                             callSid: data.start.callSid,
-                            messages: [],
-                            hasSeenMedia: false,
-                            geminiLiveClient
+                            liveClient
                         };
                         this.activeStreams.set(streamSid, streamInfo);
-
-                        this.logger.info('[Twilio] Start event received:', data);
+                        this.logger.info('[VoiceService] Start event received:', data);
                     }
                     break;
 
                 case 'media':
                     const streamInfo = this.activeStreams.get(streamSid);
                     if (streamInfo && data.media) {
-                        await this.processMediaMessage(data, streamInfo);
+                        // 发送给 GenAI Live
+                        streamInfo.liveClient.sendRealtimeInput([data.media]);
                     }
                     break;
-
                 case 'mark':
                     this.logger.info('[Twilio] Mark event received:', data.mark);
                     break;
@@ -178,7 +130,7 @@ export class VoiceService {
         const stream = this.activeStreams.get(streamSid);
         if (stream) {
             // 断开 GenAI Live 连接
-            stream.geminiLiveClient.disconnect();
+            stream.liveClient.disconnect();
             stream.ws.close();
             this.activeStreams.delete(streamSid);
             this.logger.info('[Twilio] Closed stream', streamSid);

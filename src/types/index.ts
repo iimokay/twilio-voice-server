@@ -1,5 +1,5 @@
-import WebSocket from 'ws';
 import { Part } from "@google/genai";
+import WebSocket from 'ws';
 
 export interface TwilioConfig {
   accountSid: string;
@@ -16,7 +16,6 @@ export interface MediaFormat {
 export interface StreamStart {
   accountSid: string;
   callSid: string;
-  streamSid: string;
   tracks: string[];
   mediaFormat: MediaFormat;
   customParameters: Record<string, any>;
@@ -44,7 +43,7 @@ export interface VoiceStreamData {
   event: string;
   streamSid: string;
   start?: StreamStart;
-  media?: StreamMedia;
+  media?: StreamMedia & { mimeType: string, data: string };
   mark?: StreamMark;
   stop?: StreamStop;
 }
@@ -70,13 +69,6 @@ export interface StreamInfo {
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-/**
- * the options to initiate the client, ensure apiKey is required
- */
-export interface LiveClientOptions {
-  apiKey: string;
-}
 
 /** log types */
 export interface StreamingLog {

@@ -43,8 +43,27 @@ const server = http.createServer(app.callback());
 const wss = new WebSocket.Server({ server });
 
 // WebSocket connection handler
-wss.on('connection', (ws, req) => {
-  console.log('🚀 WebSocket client connected', req.url);
+wss.on('connection', async (ws, req) => {
+  console.log('🔗 WebSocket client connected', req.url);
+  if (req.url?.includes('/user/')) {
+    const streamSid = req.url.replace('/user/', '') ?? "general-stream";
+    await voiceService.handleStreamData({
+      event: 'start',
+      streamSid,
+      start: {
+        accountSid: streamSid,
+        mediaFormat: {
+          encoding: 'pcm',
+          sampleRate: 16000,
+          channels: 1
+        },
+        tracks: ['user_audio_input'],
+        callSid: streamSid,
+        customParameters: {}
+      }
+    }, ws);
+  }
+
   ws.on('message', async (message) => {
     try {
       const data = JSON.parse(message.toString());
@@ -53,13 +72,12 @@ wss.on('connection', (ws, req) => {
       console.error('❌ Error handling WebSocket message:', error);
     }
   });
-
   ws.on('close', () => {
-    console.log('🚀 WebSocket client disconnected');
+    console.log('⛓️‍💥 WebSocket client disconnected');
   });
 
   ws.on('error', (error) => {
-    console.error('🚀 WebSocket error:', error);
+    console.error('❌ WebSocket error:', error);
   });
 });
 // Start server

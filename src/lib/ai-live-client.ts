@@ -1,6 +1,7 @@
 import {
   Content,
   GoogleGenAI,
+  GoogleGenAIOptions,
   LiveCallbacks,
   LiveClientToolResponse,
   LiveConnectConfig,
@@ -15,7 +16,7 @@ import {
 import { EventEmitter } from "eventemitter3";
 import { CloseEvent, ErrorEvent } from "ws";
 import { difference } from "lodash";
-import { LiveClientOptions, StreamingLog } from "../types";
+import { StreamingLog } from "../types";
 import { base64ToArrayBuffer } from "./utils";
 
 /**
@@ -52,7 +53,7 @@ export interface LiveClientEventTypes {
  * events to the rest of the application.
  * If you dont want to use react you can still use this.
  */
-export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
+export class AILiveClient extends EventEmitter<LiveClientEventTypes> {
   protected client: GoogleGenAI;
 
   private _status: "connected" | "disconnected" | "connecting" = "disconnected";
@@ -76,7 +77,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     return { ...this.config };
   }
 
-  constructor(options: LiveClientOptions) {
+  constructor(options: GoogleGenAIOptions) {
     super();
     this.client = new GoogleGenAI(options);
     this.send = this.send.bind(this);
@@ -243,10 +244,10 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
       hasAudio && hasVideo
         ? "audio + video"
         : hasAudio
-        ? "audio"
-        : hasVideo
-        ? "video"
-        : "unknown";
+          ? "audio"
+          : hasVideo
+            ? "video"
+            : "unknown";
     this.log(`client.realtimeInput`, message);
   }
 
