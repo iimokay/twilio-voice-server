@@ -39,3 +39,4 @@ temp/
 # 其他
 .cache/
 .temp/ 
+.cursor/
