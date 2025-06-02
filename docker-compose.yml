@@ -1,0 +1,13 @@
+version: '3.8'
+services:
+  app:
+    build: .
+    container_name: twilio-voice-server
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/app
+    environment:
+      - NODE_ENV=production
+      - GOOGLE_API_KEY=AIzaSyBZ87AnOONJzS-mxVpYHHJMmTA05VlOn0o
+    command: pnpm start 

@@ -14,8 +14,7 @@ interface StreamInfo {
   tracks: string[];
   callSid: string;
   liveClient: AILiveClient;
-  inputBuffer: Int16Array[];
-  outputBuffer: Int16Array[];
+  mediaBuffer: Int16Array[];
 }
 
 export class VoiceService {
@@ -37,7 +36,7 @@ export class VoiceService {
       },
     },
   };
-  private readonly RECORDINGS_DIR = path.join(process.cwd(), 'recordings');
+  private readonly RECORDINGS_DIR = path.join(process.cwd(), 'wavFiles');
 
   private constructor() {
     this.logger = console;
@@ -82,7 +81,7 @@ export class VoiceService {
           // 添加到输出缓冲区
           const pcmData = Buffer.from(data.payload, 'base64');
           const samples = new Int16Array(pcmData.buffer);
-          streamInfo.outputBuffer.push(samples);
+          streamInfo.mediaBuffer.push(samples);
           this.logger.info(
             `[LiveClient] Sending user audio data to stream(${streamInfo.tracks}) ${streamSid} data:${data.mimeType}`
           );
@@ -122,9 +121,9 @@ export class VoiceService {
         this.logger.info('[GenAI] Connection closed', streamSid);
         const streamInfo = this.activeStreams.get(streamSid);
         // 保存输出音频文件
-        if (streamInfo && streamInfo.outputBuffer.length > 0) {
-          const outputPath = path.join(this.RECORDINGS_DIR, `output_${streamSid}.wav`);
-          this.saveWavFile(streamInfo.outputBuffer, outputPath, 24000);
+        if (streamInfo && streamInfo.mediaBuffer.length > 0) {
+          const outputPath = path.join(this.RECORDINGS_DIR, `${streamSid}.wav`);
+          this.saveWavFile(streamInfo.mediaBuffer, outputPath, 24000);
         }
         this.activeStreams.delete(streamSid);
       })
@@ -156,8 +155,7 @@ export class VoiceService {
               tracks: data.start.tracks,
               callSid: data.start.callSid,
               liveClient,
-              inputBuffer: [],
-              outputBuffer: [],
+              mediaBuffer: [],
             };
             this.activeStreams.set(streamSid, streamInfo);
             this.logger.info('[GenAI] Start event received:', data);
@@ -182,7 +180,7 @@ export class VoiceService {
                 data: pcmData,
               },
             ]);
-            streamInfo.inputBuffer.push(new Int16Array(Buffer.from(pcmData, 'base64').buffer));
+            streamInfo.mediaBuffer.push(new Int16Array(Buffer.from(pcmData, 'base64').buffer));
           }
           break;
 
@@ -193,11 +191,6 @@ export class VoiceService {
         case 'stop':
           if (streamInfo) {
             this.logger.info('[GenAI] Close event received:', data);
-            // 保存输入音频文件
-            if (streamInfo.inputBuffer.length > 0) {
-              const inputPath = path.join(this.RECORDINGS_DIR, `input_${streamSid}.wav`);
-              this.saveWavFile(streamInfo.inputBuffer, inputPath);
-            }
             this.closeStream(streamSid);
           }
           break;
