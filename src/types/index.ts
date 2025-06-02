@@ -18,7 +18,7 @@ export interface StreamStart {
   callSid: string;
   tracks: string[];
   mediaFormat: MediaFormat;
-  customParameters: Record<string, any>;
+  customParameters: Record<string, unknown>;
 }
 
 export interface StreamMedia {
@@ -74,7 +74,7 @@ export interface StreamInfo {
 export interface StreamingLog {
   date: Date;
   type: string;
-  message: any;
+  message: unknown;
 }
 
 export type ClientContentLog = {

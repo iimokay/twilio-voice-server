@@ -8,6 +8,7 @@
     "dev": "ts-node-dev --respawn src/app.ts",
     "build": "rimraf dist && tsc",
     "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint \"src/**/*.{ts,tsx,js,jsx}\" --max-warnings=0",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,md}\""
   },
@@ -29,6 +30,8 @@
     "x-law": "^0.3.1"
   },
   "devDependencies": {
+    "@eslint/css": "^0.8.1",
+    "@eslint/js": "^9.28.0",
     "@types/koa": "^2.15.0",
     "@types/koa-bodyparser": "^4.3.12",
     "@types/koa-static": "^4.0.4",
@@ -36,11 +39,17 @@
     "@types/lodash": "^4.17.17",
     "@types/node": "^20.17.50",
     "@types/ws": "^8.18.1",
+    "@typescript-eslint/eslint-plugin": "^8.33.0",
+    "@typescript-eslint/parser": "^8.33.0",
     "copyfiles": "^2.4.1",
+    "eslint": "^9.28.0",
+    "eslint-plugin-react": "^7.37.5",
+    "globals": "^16.2.0",
     "nodemon": "^3.1.10",
     "prettier": "^3.5.3",
     "rimraf": "^5.0.10",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.33.0"
   }
 }

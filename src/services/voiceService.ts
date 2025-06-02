@@ -145,6 +145,7 @@ export class VoiceService {
   public async handleStreamData(data: VoiceStreamData, ws: WebSocket): Promise<void> {
     try {
       const { streamSid } = data;
+      const streamInfo = this.activeStreams.get(streamSid);
       switch (data.event) {
         case 'start':
           if (data.start) {
@@ -162,9 +163,7 @@ export class VoiceService {
             this.logger.info('[GenAI] Start event received:', data);
           }
           break;
-
         case 'media':
-          const streamInfo = this.activeStreams.get(streamSid);
           if (streamInfo && data.media) {
             let pcmData = data.media.payload;
             if (!streamInfo.tracks.includes('user_audio_input')) {
@@ -192,13 +191,12 @@ export class VoiceService {
           break;
 
         case 'stop':
-          const stream = this.activeStreams.get(streamSid);
-          if (stream) {
+          if (streamInfo) {
             this.logger.info('[GenAI] Close event received:', data);
             // 保存输入音频文件
-            if (stream.inputBuffer.length > 0) {
+            if (streamInfo.inputBuffer.length > 0) {
               const inputPath = path.join(this.RECORDINGS_DIR, `input_${streamSid}.wav`);
-              this.saveWavFile(stream.inputBuffer, inputPath);
+              this.saveWavFile(streamInfo.inputBuffer, inputPath);
             }
             this.closeStream(streamSid);
           }
