@@ -22,16 +22,19 @@ export class VoiceService {
   private static instance: VoiceService;
   private logger: Console;
   private activeStreams: Map<string, StreamInfo>;
-  private readonly GENAI_MODEL = 'models/gemini-2.0-flash-exp';
+  private readonly GENAI_MODEL = 'gemini-2.0-flash-live-001';
   private readonly GENAI_CONFIG: LiveConnectConfig = {
     responseModalities: [Modality.AUDIO],
+    systemInstruction: {
+      text: `你是小爱同学，请用中文回答用户的问题。现在时间是${new Date().toLocaleString()}`,
+    },
     speechConfig: {
       languageCode: 'cmn-CN',
-      // voiceConfig: {
-      //     prebuiltVoiceConfig: {
-      //         voiceName: "Charon"
-      //     }
-      // }
+      voiceConfig: {
+        prebuiltVoiceConfig: {
+          voiceName: 'Leda',
+        },
+      },
     },
   };
   private readonly RECORDINGS_DIR = path.join(process.cwd(), 'recordings');
@@ -164,16 +167,15 @@ export class VoiceService {
           const streamInfo = this.activeStreams.get(streamSid);
           if (streamInfo && data.media) {
             let pcmData = data.media.payload;
-            // 添加到输入缓冲区
-            const audioData = Buffer.from(data.media.payload, 'base64');
-            const samples = new Int16Array(audioData.buffer);
-            streamInfo.inputBuffer.push(samples);
-
             if (!streamInfo.tracks.includes('user_audio_input')) {
-              pcmData = AudioConverter.convert(audioData, streamInfo.mediaFormat, {
-                encoding: 'audio/pcm',
-                sampleRate: 16000,
-              }).toString('base64');
+              pcmData = AudioConverter.convert(
+                Buffer.from(pcmData, 'base64'),
+                streamInfo.mediaFormat,
+                {
+                  encoding: 'audio/pcm',
+                  sampleRate: 16000,
+                }
+              ).toString('base64');
             }
             streamInfo.liveClient.sendRealtimeInput([
               {
@@ -181,6 +183,7 @@ export class VoiceService {
                 data: pcmData,
               },
             ]);
+            streamInfo.inputBuffer.push(new Int16Array(Buffer.from(pcmData, 'base64').buffer));
           }
           break;
 
