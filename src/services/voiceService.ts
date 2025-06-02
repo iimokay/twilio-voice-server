@@ -122,7 +122,10 @@ export class VoiceService {
         const streamInfo = this.activeStreams.get(streamSid);
         // 保存输出音频文件
         if (streamInfo && streamInfo.mediaBuffer.length > 0) {
-          const outputPath = path.join(this.RECORDINGS_DIR, `${streamSid}.wav`);
+          const outputPath = path.join(
+            this.RECORDINGS_DIR,
+            `${Date.now()}_${streamInfo.callSid}.wav`
+          );
           this.saveWavFile(streamInfo.mediaBuffer, outputPath, 24000);
         }
         this.activeStreams.delete(streamSid);
