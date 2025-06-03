@@ -24,8 +24,9 @@ export class VoiceService {
   private readonly GENAI_MODEL = 'gemini-2.0-flash-live-001';
   private readonly GENAI_CONFIG: LiveConnectConfig = {
     responseModalities: [Modality.AUDIO],
+    tools: [{ googleSearch: {} }],
     systemInstruction: {
-      text: `你是小爱同学，请用中文回答用户的问题。现在时间是${new Date().toLocaleString()}`,
+      text: `你是小爱同学，请用中文回答用户的问题。现在时间是${new Date().toUTCString()}`,
     },
     speechConfig: {
       languageCode: 'cmn-CN',
@@ -74,6 +75,9 @@ export class VoiceService {
 
   private async initializeLiveClent(streamSid: string): Promise<AILiveClient> {
     const ai = new AILiveClient({ apiKey: env.google.apiKey });
+    // ai.on('log', data => {
+    //   this.logger.info(`[GenAI] Log:`, data);
+    // });
     ai.on('audio', data => {
       const streamInfo = this.activeStreams.get(streamSid);
       if (streamInfo) {
